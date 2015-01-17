@@ -1,0 +1,25 @@
+
+OnionMail statistics tool v. 1.0
+  (C) 2015 Tramaci.Org
+  Some rights reserved.
+
+Usage: onm-stats [-mnlab] [-p path] [-d days] [-e charset] [-s nick]
+		 [-i nick,nick]
+		 
+	-m	Show only users stats.
+	-n	Do no print totals.
+	-p	Set the path contains the maildir.
+	-s	Set the server into the path by nickname.
+	-l	Show total only.
+	-d	Se the time period in days (default 60).
+	-b	Set the time period form the beginning.
+	-i	Hide some servers by nick.
+	-g	Do don create graphs.
+	-a	ASCII output instead UTF-8.
+	-e	Set output encoding.
+
+Warning:
+	These statistics information are not accurate because the server breaks
+	up files over a certain size and it rewrites the files by changing the 
+	dates and / or files already read or used are deleted.
+

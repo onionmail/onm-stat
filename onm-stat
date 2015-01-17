@@ -1,0 +1,322 @@
+#!/usr/bin/php
+<?
+
+function output($enc) {
+	$data=ob_get_clean();
+	if ($enc=='ASCII') {
+	        $data = str_replace(
+			array( '─','═','█','■','│','┌','┐' ,'└' ,'┘')	,
+			array( '-','=','*','*','|','/','\\','\\','/')	,
+			$data	)
+			;
+		}
+	echo mb_convert_encoding($data,$enc,'UTF-8');
+	}
+
+function btgr(&$str,$btl,$btr,$replac='') {
+		 $ii=strpos($str,$btl);
+		 if ($ii===FALSE) return FALSE;
+		 $tmp=substr($str,$ii+strlen($btl));
+ 		 $ff=strpos($tmp,$btr);
+		 if ($ff===FALSE) return FALSE;
+		 $nw=substr($str,0,$ii);
+		 $nw.=$replac.substr($str,$ii+strlen($btl)+strlen($btr)+$ff);
+		 $str=$nw;
+ 		 return substr($tmp,0,$ff);
+		 }
+
+function dirAnEl(&$V) {
+        $dh=opendir($V['path']);
+        if ($dh===false) return false;
+        $cx=0;
+        while($file = readdir($dh)) {
+        	$tf = $V['path'].'/'.$file;
+        	if (is_dir($tf)) continue;
+        	if (strpos($file,'.')===false) continue;
+        	list($fi,$cext)=explode('.',$file,2);
+ 
+        	if ($cext==$V['ext']) {
+			$V['cx']++;      
+			$X = filemtime($tf);
+			if ($X>=$V['ti'] AND $X<=$V['tf']) {
+			        $X = floor($X/86400);
+			        if (!isset($V['td'][$X])) $V['td'][$X]=0;
+			        $V['td'][$X]++;
+			        $V['ax']++;
+				}
+			}
+		}
+        closedir($dh);
+        }
+
+function newMonitor($path,$ext,$ret=60) {
+	$T = floor(time()/86400);
+	if ($ret<1) $TI=0; else $TI = ($T-$ret) * 86400;
+	$TF = ($T+1) * 86400;
+	$V = array(
+		'path'	=>	$path	,
+		'ext'	=>	$ext	,
+		'cx'	=>	0	,
+		'ax'	=>	0	,
+	        'ti'	=>	$TI	,
+	        'tf'	=>	$TF	,
+	        'td'	=>	array()	)
+		;
+	return $V;
+	}
+
+function outTd($td) {
+	if (count($td)==0) {
+	        echo "NO ACTIVITY!\n";
+	        return;
+		}
+
+	$mx = max($td);
+	if ($mx==0) $mx=1;
+	
+
+	$dat=array();
+	$yva=array();
+	$ii = (2+floor(time()/86400));
+	$ff = -1;
+	foreach($td as $k => $v) {
+	        if ($k<$ii) $ii=$k;
+	        if ($k>$ff) $ff=$k;
+		} 
+	 
+	if ($ff==-1) return false;
+	$ff++;
+	
+	for($d = $ii;$d<$ff;$d++) {
+	        $tcr=86400*$d;
+		$dat[]=date('m/d',$tcr).'  ';
+		if (!isset($td[$d])) {
+
+			$yva[]=0;
+		        continue;
+			}
+
+		$yva[]=intval(5 * ( $td[$d] / $mx));
+		}
+
+	$cx=count($dat);
+	for ($y=0;$y<5;$y++) {
+		for ($x=0;$x<$cx;$x++) {
+	        	$vy = 5-$y;
+	        	if ($yva[$x]>=$vy) echo "█"; else echo " ";
+	        	}
+		echo "\n";
+		}	
+	
+	echo str_repeat('─',$cx)."\n";
+	
+	for ($y=0;$y<5;$y++) {
+		for ($x=0;$x<$cx;$x++) echo $dat[$x][$y]; 
+		echo "\n";
+		}	
+	
+	echo str_repeat('─',$cx)."\n" ;
+	
+	}
+
+function serverStats($OPT,$path,$ret,&$gat,&$stat) {
+	
+	$Struct = array(
+		'Users'		=>	array(	'usr'	,	'dbf.dbf'	)	,
+		'NewVMAT'	=>	array(	'net'	,	'mat'		)	,
+		'MList'		=>	array(	'inbox'	,	'ml.idx'	)	,
+		'Network'	=>	array(	'feed'	,	'mf'		)	)	
+		;
+	
+	if (isset($OPT['m'])) unset($Struct['NewVMAT'], $Struct['MList'] , $Struct['Network'] );
+			
+	$xml = file_get_contents($path.'/config-v1.1.xml');
+	$xml = strtolower($xml);
+	$xml = str_replace(array(' ',"\t","\r","\n"),'',$xml);
+	$srv = btgr($xml,'<displayshortname>','</displayshortname>');
+	$oni = btgr($xml,'<hostname>','</hostname>');
+	$xml='';
+	if (isset($OPT['i']) AND stripos($OPT['i'],",$srv,")!==false) return;
+	
+	if (isset($OPT['s']) AND $OPT['s']!=$srv) return;
+	if (!isset($OPT['l'])) {
+		echo str_repeat('═',79)."\n";
+		echo "Server:  $srv\n";
+		echo "Host:    $oni\n";
+		}
+	
+	$dt =@file_get_contents($path.'/server.bin');
+	$verFlg = ord($dt[0x43]);
+	$t0=$verFlg&3;
+	$verHi = ord($dt[0x21]);
+		
+	if ($t0 == 2 AND $verFlg&8) {
+	        echo "Error: Antiforensic protocol disables the stats.\n";
+	        return;
+		}
+		
+	if ($t0 == 1 AND ($verFlg&32)) {
+		echo "Error: Incompatible dbx version.\n";
+		return;
+		}
+	
+	if ($verHi == 2) {
+	        echo "Error: Incompatible dbx.dbx version!\n";
+	        return;
+	        }
+	
+	if (!isset($OPT['l'])) {
+		if ($t0 == 3 OR $verHi == 1 ) {
+		        echo "Warning: New version of OnionMail: This stats can be randomly!\n";
+		        }
+		
+		if ($verHi == 0) {
+		        echo "Warning: Can't detect all activities:  This stats is incomplete!\n";
+		        }
+		}
+	
+	foreach($Struct as $k => $v) {
+		$mt = newMonitor($path . '/' . $v[0],$v[1],$ret);
+		dirAnEl($mt);
+		if ($k == 'Users') $stat[$srv] = array(
+			'Usr'	=>	$mt['cx']	,
+			'Act'	=>	$mt['ax']       )
+			;
+			
+		if (!isset($OPT['l'])) {	
+			echo "\n".str_repeat('─',79)."\n" ;
+			echo " ■ $k:\n";
+			echo "   ".date('Y/m/d',$mt['ti']).' - '.date('Y/m/d',$mt['tf'])."\n";
+			//echo str_repeat('─',79)."\n" ;
+			echo "   Users: {$mt['cx']}\n   Active Users: {$mt['ax']}\n";
+			}
+			
+		foreach($mt['td'] as $k => $v) {
+		        if (!isset($gat[$k])) $gat[$k] = 0;
+			$gat[$k] += $v;		
+			}
+			
+		if (!isset($OPT['g']) AND !isset($OPT['l'])) outTd($mt['td']);
+		}
+		
+	//if (!isset($OPT['l'])) echo str_repeat('═',79)."\n\n";	
+	}
+
+$OPT = getopt('p:d:mnhage:s:li:b');
+if (isset($OPT['a'])) $OPT['a']='ASCII';
+if (isset($OPT['e'])) $OPT['a']=$OPT['e'];
+if (isset($OPT['a'])) ob_start();
+if (isset($OPT['h']) OR @$argv[1]=='-?') {
+?>
+
+OnionMail statistics tool v. 1.0
+  (C) 2015 Tramaci.Org
+  Some rights reserved.
+
+Usage: onm-stats [-mnlab] [-p path] [-d days] [-e charset] [-s nick]
+		 [-i nick,nick]
+		 
+	-m	Show only users stats.
+	-n	Do no print totals.
+	-p	Set the path contains the maildir.
+	-s	Set the server into the path by nickname.
+	-l	Show total only.
+	-d	Se the time period in days (default 60).
+	-b	Set the time period form the beginning.
+	-i	Hide some servers by nick.
+	-g	Do don create graphs.
+	-a	ASCII output instead UTF-8.
+	-e	Set output encoding.
+
+Warning:
+	These statistics information are not accurate because the server breaks
+	up files over a certain size and it rewrites the files by changing the 
+	dates and / or files already read or used are deleted.
+
+<?
+if (isset($OPT['a'])) output($OPT['a']);
+	return;
+	}
+
+if (isset($OPT['l'])) unset($OPT['n']);
+if (isset($OPT['i'])) {
+	$t0=str_replace(array("\t"," "),'',$OPT['i']);
+	$t0=trim($t0,',');
+	$t0=strtolower($t0);
+	$t0=",$t0,";
+	$OPT['i']=$t0;
+	}
+	
+$path = @$OPT['p']!='' ? rtrim(@$OPT['p'],'/') : '/var/onionmail' ;
+$ret = @$OPT['d']!='' ? intval(@$OPT['d']) : 60;
+if (isset($OPT['b'])) $ret=0;
+
+$dh=@opendir($path) OR die("Path error: `$path`\n");
+$gat=array();
+$stat=array();
+while($dir=readdir($dh)) {
+	if ($dir[0]=='.') continue;                                                                     
+	$ph = $path.'/'.$dir;
+	if (!file_exists($ph.'/server.bin')) continue;
+	serverStats($OPT,$ph,$ret,$gat,$stat);
+	}
+closedir($dh);
+ 
+if (isset($OPT['n'])) {
+	if (isset($OPT['a'])) output($OPT['a']);
+	return;
+	}
+
+if (!isset($OPT['g'])) { 
+	echo str_repeat('═',79)."\n";
+	echo "Global:\n";
+	outTd($gat);
+	}
+	
+echo str_repeat('═',79)."\n";
+echo "   ".str_pad('Server',16,' ',STR_PAD_RIGHT).' ';
+echo str_pad('Usr.',8).' ';
+echo str_pad('Act.',8).' ';
+echo str_pad('P.At.',8).' ';
+echo "P.Tot.\n";
+echo str_repeat('─',79)."\n";
+$a=0;
+$b=0;
+foreach($stat as $k => $v ) {
+	$a+=$v['Usr'];
+	$b+=$v['Act'];
+	}
+
+foreach($stat as $k => $v ) {
+	echo " ■ ".str_pad($k,16,' ',STR_PAD_RIGHT).' ';
+	echo str_pad($v['Usr'],8).' ';
+	echo str_pad($v['Act'],8).' ';
+	echo str_pad(round( 100* ($v['Act'] / ( $v['Usr']!=0 ? $v['Usr'] : 1 )),1).'%',8).' ';
+	echo round( 100 * ($v['Usr'] / ($a!=0 ? $a : 1)),1)."%\n";
+	}
+
+echo str_repeat('─',79)."\n"; 
+echo "   ".str_pad('Tot.:',16,' ',STR_PAD_RIGHT).' ';
+echo str_pad($a,8).' ';
+echo str_pad($b,8).' ';
+echo str_pad(round( 100* ($b/($a!=0 ? $a : 1)) , 1).'%',8).' ';
+echo "-\n";
+	
+echo str_repeat('═',79)."\n";
+
+$TF = floor(time()/86400)*86400;
+
+echo "   Period:\t    ";
+if ($ret>1) {
+	$TI = (floor(time()/86400)-$ret) * 86400;
+	echo date("Y/m/d" , $TI);
+	} else echo 'Beginning';
+	
+echo ' - '.date("Y/m/d");
+if ($ret>1) echo " - $ret Days";
+echo "\n";
+
+echo str_repeat('═',79)."\n";
+
+if (isset($OPT['a'])) output($OPT['a']);
+?>
